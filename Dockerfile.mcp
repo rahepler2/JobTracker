@@ -1,0 +1,30 @@
+# JobTracker MCP Server Dockerfile
+# For running the MCP server as a standalone container
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash appuser
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser mcp_server/ ./mcp_server/
+COPY --chown=appuser:appuser config/ ./config/
+COPY --chown=appuser:appuser pyproject.toml .
+
+# Switch to non-root user
+USER appuser
+
+# Environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Run MCP server (stdio mode)
+CMD ["python", "-m", "mcp_server.server"]

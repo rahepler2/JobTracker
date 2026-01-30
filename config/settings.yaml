@@ -1,0 +1,50 @@
+# JobTracker Configuration
+
+bls:
+  base_url: "https://api.bls.gov/publicAPI/v2/"
+  bulk_download_base: "https://www.bls.gov/oes/special-requests/"
+  rate_limit_delay: 0.5  # seconds between requests
+  max_series_per_request: 50
+  max_years: 20
+  timeout: 30
+
+onet:
+  base_url: "https://services.onetcenter.org/ws/"
+  bulk_download_url: "https://www.onetcenter.org/dl_files/database/"
+  rate_limit_delay: 0.2
+  timeout: 30
+
+typesense:
+  connection_timeout: 10
+  num_retries: 3
+  retry_interval: 1.0
+  batch_size: 100
+
+data:
+  current_oews_year: 2024
+  projections_period: "2024-34"
+  cache_dir: "./cache"
+
+api:
+  title: "JobTracker API"
+  description: "BLS Jobs Data API - Access occupational data, wages, and skills"
+  version: "0.1.0"
+  docs_url: "/docs"
+  redoc_url: "/redoc"
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+collections:
+  occupations:
+    name: "occupations"
+    default_sorting_field: "national_employment"
+
+  wages_by_location:
+    name: "occupation_wages_by_location"
+    default_sorting_field: "employment"
+
+  skills:
+    name: "skills"
+    default_sorting_field: "occupation_count"

@@ -1,0 +1,61 @@
+# JobTracker Development Docker Compose
+# Includes hot reload and development tools
+
+version: '3.8'
+
+services:
+  # Typesense Search Database
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: jobtracker-typesense-dev
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense-dev-data:/data
+    environment:
+      - TYPESENSE_DATA_DIR=/data
+      - TYPESENSE_API_KEY=dev-api-key
+      - TYPESENSE_ENABLE_CORS=true
+    command: '--data-dir /data --api-key=dev-api-key --enable-cors'
+    networks:
+      - jobtracker-dev
+
+  # JobTracker API with hot reload
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobtracker-api-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_PROTOCOL=http
+      - TYPESENSE_API_KEY=dev-api-key
+      - BLS_API_KEY=${BLS_API_KEY:-}
+      - ONET_USERNAME=${ONET_USERNAME:-}
+      - ONET_APP_KEY=${ONET_APP_KEY:-}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_DEBUG=true
+    depends_on:
+      - typesense
+    volumes:
+      # Mount source for hot reload
+      - ./src:/app/src:ro
+      - ./api:/app/api:ro
+      - ./mcp_server:/app/mcp_server:ro
+      - ./scripts:/app/scripts:ro
+      - ./config:/app/config:ro
+      - ./cache:/app/cache
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    networks:
+      - jobtracker-dev
+
+volumes:
+  typesense-dev-data:
+
+networks:
+  jobtracker-dev:
+    driver: bridge

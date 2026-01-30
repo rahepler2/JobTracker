@@ -1,0 +1,95 @@
+# JobTracker Docker Compose Configuration
+# Complete stack: Typesense + API + Optional services
+
+version: '3.8'
+
+services:
+  # Typesense Search Database
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: jobtracker-typesense
+    restart: unless-stopped
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense-data:/data
+    environment:
+      - TYPESENSE_DATA_DIR=/data
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-jobtracker-dev-key}
+      - TYPESENSE_ENABLE_CORS=true
+    command: '--data-dir /data --api-key=${TYPESENSE_API_KEY:-jobtracker-dev-key} --enable-cors'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - jobtracker-network
+
+  # JobTracker API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobtracker-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_PROTOCOL=http
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-jobtracker-dev-key}
+      - BLS_API_KEY=${BLS_API_KEY:-}
+      - ONET_USERNAME=${ONET_USERNAME:-}
+      - ONET_APP_KEY=${ONET_APP_KEY:-}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_DEBUG=${API_DEBUG:-false}
+    depends_on:
+      typesense:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - jobtracker-network
+    volumes:
+      - ./cache:/app/cache
+
+  # Data Loader Service (one-time or scheduled)
+  data-loader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobtracker-loader
+    profiles:
+      - loader
+    environment:
+      - TYPESENSE_HOST=typesense
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_PROTOCOL=http
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:-jobtracker-dev-key}
+      - BLS_API_KEY=${BLS_API_KEY:-}
+      - ONET_USERNAME=${ONET_USERNAME:-}
+      - ONET_APP_KEY=${ONET_APP_KEY:-}
+    depends_on:
+      typesense:
+        condition: service_healthy
+    command: ["python", "-m", "scripts.initial_load"]
+    networks:
+      - jobtracker-network
+    volumes:
+      - ./cache:/app/cache
+
+volumes:
+  typesense-data:
+    driver: local
+
+networks:
+  jobtracker-network:
+    driver: bridge
